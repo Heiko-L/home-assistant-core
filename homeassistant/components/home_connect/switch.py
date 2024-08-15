@@ -13,6 +13,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
     ATTR_VALUE,
+    ATTR_PRG_SWITCH,
+    ATTR_STA_SWITCH,
     BSH_ACTIVE_PROGRAM,
     BSH_CHILD_LOCK_STATE,
     BSH_OPERATION_STATE,
@@ -50,44 +52,83 @@ async def async_setup_entry(
 class HomeConnectProgramSwitch(HomeConnectEntity, SwitchEntity):
     """Switch class for Home Connect."""
 
-    def __init__(self, device, program_name):
+    def __init__(self, device, name, switch_type, key):
         """Initialize the entity."""
-        desc = " ".join(["Program", program_name.split(".")[-1]])
-        if device.appliance.type == "WasherDryer":
-            desc = " ".join(
-                ["Program", program_name.split(".")[-3], program_name.split(".")[-1]]
-            )
+        if switch_type == ATTR_PRG_SWITCH:
+          desc = " ".join(["Program", name.split(".")[-1]])
+          if device.appliance.type == "WasherDryer":
+              desc = " ".join(
+                  ["Program", name.split(".")[-3], name.split(".")[-1]]
+              )
+        elif switch_type == ATTR_STA_SWITCH:
+          desc = name
+          self._key = key
         super().__init__(device, desc)
-        self.program_name = program_name
+
+        self.name = name
+        self._state = None
+        self._remote_allowed = None
+        self._type = switch_type
+
+    @property
+    def is_on(self):
+        """Return true if the switch is on."""
+        return bool(self._state)
+
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        """Start the program."""
-        _LOGGER.debug("Tried to turn on program %s", self.program_name)
-        try:
+        if self._type == ATTR_PRG_SWITCH:
+          """Start the program."""
+          _LOGGER.debug("Tried to turn on program %s", self.name)
+          try:
             await self.hass.async_add_executor_job(
-                self.device.appliance.start_program, self.program_name
+              self.device.appliance.start_program, self.name
             )
-        except HomeConnectError as err:
+          except HomeConnectError as err:
             _LOGGER.error("Error while trying to start program: %s", err)
+        elif self._type == ATTR_STA_SWITCH:
+          _LOGGER.debug("Tried to turn on switch %s", self.name)
+          try:
+            await self.hass.async_add_executor_job(
+              self.device.appliance.set_setting, self._key, "true"
+            )
+          except HomeConnectError as err:
+              _LOGGER.error("Error while trying to turn on switch: %s", err)
         self.async_entity_update()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        """Stop the program."""
-        _LOGGER.debug("Tried to stop program %s", self.program_name)
-        try:
+        if self._type == ATTR_PRG_SWITCH:
+          """Stop the program."""
+          _LOGGER.debug("Tried to stop program %s", self.name)
+          try:
             await self.hass.async_add_executor_job(self.device.appliance.stop_program)
-        except HomeConnectError as err:
+          except HomeConnectError as err:
             _LOGGER.error("Error while trying to stop program: %s", err)
+        elif self._type == ATTR_STA_SWITCH:
+          _LOGGER.debug("Tried to turn off %s", self.name)
+          try:
+            await self.hass.async_add_executor_job(
+              self.device.appliance.set_setting, self._key, "false"
+            )
+          except HomeConnectError as err:
+            _LOGGER.error("Error while trying to turn off: %s", err)
         self.async_entity_update()
 
     async def async_update(self) -> None:
         """Update the switch's status."""
-        state = self.device.appliance.status.get(BSH_ACTIVE_PROGRAM, {})
-        if state.get(ATTR_VALUE) == self.program_name:
-            self._attr_is_on = True
-        else:
-            self._attr_is_on = False
-        _LOGGER.debug("Updated, new state: %s", self._attr_is_on)
+        if self._type == ATTR_PRG_SWITCH:
+          state = self.device.appliance.status.get(BSH_ACTIVE_PROGRAM, {})
+          if state.get(ATTR_VALUE) == self.name:
+              self._state = True
+          else:
+              self._state = False
+          _LOGGER.debug("Updated, new state: %s", self._state)
+        elif self._type == ATTR_STA_SWITCH:
+          settings = self.device.appliance.get_settings()
+          if settings.get(self._key) == "true":
+            self._state = True
+          else:
+            self._state = False
 
 
 class HomeConnectPowerSwitch(HomeConnectEntity, SwitchEntity):

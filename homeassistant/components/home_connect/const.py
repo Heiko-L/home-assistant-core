@@ -39,6 +39,9 @@ BSH_DOOR_STATE_OPEN = "BSH.Common.EnumType.DoorState.Open"
 BSH_PAUSE = "BSH.Common.Command.PauseProgram"
 BSH_RESUME = "BSH.Common.Command.ResumeProgram"
 
+BSH_SUPER_REFRIGERATION = "Refrigeration.FridgeFreezer.Setting.SuperModeRefrigerator"
+BSH_SUPER_FREEZE = "Refrigeration.FridgeFreezer.Setting.SuperModeFreezer"
+
 SIGNAL_UPDATE_ENTITIES = "home_connect.update_entities"
 
 SERVICE_OPTION_ACTIVE = "set_option_active"
@@ -58,3 +61,5 @@ ATTR_SENSOR_TYPE = "sensor_type"
 ATTR_SIGN = "sign"
 ATTR_UNIT = "unit"
 ATTR_VALUE = "value"
+ATTR_PRG_SWITCH = "program_switch"
+ATTR_STA_SWITCH = "status_switch"

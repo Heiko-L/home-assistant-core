@@ -29,10 +29,14 @@ from .const import (
     ATTR_SIGN,
     ATTR_UNIT,
     ATTR_VALUE,
+    ATTR_PRG_SWITCH,
+    ATTR_STA_SWITCH,
     BSH_ACTIVE_PROGRAM,
     BSH_OPERATION_STATE,
     BSH_POWER_OFF,
     BSH_POWER_STANDBY,
+    BSH_SUPER_REFRIGERATION,
+    BSH_SUPER_FREEZE,
     SIGNAL_UPDATE_ENTITIES,
 )
 
@@ -162,7 +166,7 @@ class DeviceWithPrograms(HomeConnectDevice):
         There will be one switch for each program.
         """
         programs = self.get_programs_available()
-        return [{ATTR_DEVICE: self, "program_name": p} for p in programs]
+        return [{ATTR_DEVICE: self, "name": p, "switch_type": ATTR_PRG_SWITCH, ATTR_KEY: "none"} for p in programs]
 
     def get_program_sensors(self):
         """Get a dictionary with info about program sensors.
@@ -220,6 +224,21 @@ class DeviceWithDoor(HomeConnectDevice):
             ATTR_DEVICE_CLASS: "door",
         }
 
+class DeviceWithStatusSwitches(HomeConnectDevice):
+    """Device that has switches in device status."""
+
+    def get_statusswitch_entity(self):
+        """Get a dictionary with info about the switches in device status."""
+        switch_list = []
+        self.appliance.get_settings()
+        if settings.get(BSH_SUPER_REFRIGERATION) != "None":
+          _LOGGER.debug("Found SuperCool switch")
+          switch_list.append({ATTR_DEVICE: self, "name": "SuperCool", "switch_type": ATTR_STA_SWITCH, ATTR_KEY: BSH_SUPER_REFRIGERATION})
+        if settings.get(BSH_SUPER_FREEZE) != "None":
+          _LOGGER.debug("Found SuperFreeze switch")
+          switch_list.append({ATTR_DEVICE: self, "name": "SuperFreeze", "switch_type": ATTR_STA_SWITCH, ATTR_KEY: BSH_SUPER_FREEZE})
+          _LOGGER.debug("Status Switch List: %s", switch_list)
+        return switch_list
 
 class DeviceWithLight(HomeConnectDevice):
     """Device that has lighting."""
@@ -429,13 +448,20 @@ class Hood(
         }
 
 
-class FridgeFreezer(DeviceWithDoor):
+class FridgeFreezer(
+    DeviceWithDoor,
+    DeviceWithStatusSwitches
+):
     """Fridge/Freezer class."""
 
     def get_entity_info(self):
         """Get a dictionary with infos about the associated entities."""
         door_entity = self.get_door_entity()
-        return {"binary_sensor": [door_entity]}
+        statusswitch_entity = self.get_statusswitch_entity()
+        return {
+            "binary_sensor": [door_entity],
+            "switch": [statusswitch_entity],
+        }
 
 
 class Refrigerator(DeviceWithDoor):
